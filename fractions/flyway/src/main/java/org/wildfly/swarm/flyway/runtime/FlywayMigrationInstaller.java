@@ -19,6 +19,8 @@ import java.util.List;
 
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 
 import org.flywaydb.core.Flyway;
 import org.jboss.logging.Logger;
@@ -45,7 +47,7 @@ public class FlywayMigrationInstaller implements DeploymentProcessor {
     }
 
     @Override
-    public void process() {
+    public void process() throws NamingException {
         FlywayFraction flywayFraction = flywayFractionInstance.get();
         Flyway flyway = new Flyway();
 
@@ -54,13 +56,15 @@ public class FlywayMigrationInstaller implements DeploymentProcessor {
             if (primaryDatasource == null) {
                 logger.warn("Flyway fraction is installed but no valid configuration is provided");
             }
-            flyway.setDataSource(primaryDatasource.connectionUrl(), primaryDatasource.userName(), primaryDatasource.password());
+            javax.sql.DataSource dataSource = (javax.sql.DataSource) new InitialContext().lookup(primaryDatasource.jndiName());
+            flyway.setDataSource(dataSource);
         } else {
             flyway.setDataSource(flywayFraction.jdbcUrl(), flywayFraction.jdbcUser(), flywayFraction.jdbcPassword());
 
         }
         flyway.configure(System.getProperties());
         flyway.migrate();
+        logger.info("Done");
     }
 
     private DataSource getPrimaryDatasource() {
