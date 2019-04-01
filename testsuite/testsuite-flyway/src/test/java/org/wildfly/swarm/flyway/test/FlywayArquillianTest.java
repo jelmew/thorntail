@@ -37,12 +37,9 @@ import org.wildfly.swarm.undertow.WARArchive;
  * @author <a href="mailto:ggastald@redhat.com">George Gastaldi</a>
  */
 @RunWith(Arquillian.class)
+@DefaultDeployment(type = DefaultDeployment.Type.WAR)
 public class FlywayArquillianTest {
-    @Deployment
-    public static Archive<?> getDeployment() throws Exception {
-        return ShrinkWrap.create(WARArchive.class, "deployment.war");
-                //.addAsResource(new File("src/test/resources/db"), "db");
-    }
+
     @Test
     public void testDataSourceContents() throws Exception {
         DataSource dataSource = (DataSource) new InitialContext().lookup("java:jboss/datasources/ExampleDS");
