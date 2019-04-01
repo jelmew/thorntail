@@ -15,6 +15,7 @@
  */
 package org.wildfly.swarm.flyway.test;
 
+import java.io.File;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -22,19 +23,26 @@ import java.sql.ResultSet;
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
 
+import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.shrinkwrap.api.Archive;
+import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.wildfly.swarm.arquillian.DefaultDeployment;
+import org.wildfly.swarm.undertow.WARArchive;
 
 /**
  * @author <a href="mailto:ggastald@redhat.com">George Gastaldi</a>
  */
 @RunWith(Arquillian.class)
-@DefaultDeployment(type = DefaultDeployment.Type.WAR)
 public class FlywayArquillianTest {
-
+    @Deployment
+    public static Archive<?> getDeployment() throws Exception {
+        return ShrinkWrap.create(WARArchive.class, "deployment.war");
+                //.addAsResource(new File("src/test/resources/db"), "db");
+    }
     @Test
     public void testDataSourceContents() throws Exception {
         DataSource dataSource = (DataSource) new InitialContext().lookup("java:jboss/datasources/ExampleDS");
