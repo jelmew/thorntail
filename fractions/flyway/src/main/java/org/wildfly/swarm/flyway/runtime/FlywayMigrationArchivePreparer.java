@@ -15,20 +15,26 @@
  */
 package org.wildfly.swarm.flyway.runtime;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 
+import org.jboss.logging.Logger;
 import org.jboss.shrinkwrap.api.Archive;
+import org.jboss.shrinkwrap.api.asset.ByteArrayAsset;
+import org.jboss.shrinkwrap.api.asset.StringAsset;
+import org.wildfly.swarm.bootstrap.util.TempFileManager;
 import org.wildfly.swarm.config.datasources.DataSource;
 import org.wildfly.swarm.datasources.DatasourcesFraction;
+import org.wildfly.swarm.flyway.DatabaseMigration;
 import org.wildfly.swarm.flyway.FlywayFraction;
-import org.wildfly.swarm.flyway.deployment.FlywayMigrationServletContextListener;
 import org.wildfly.swarm.spi.api.DeploymentProcessor;
 import org.wildfly.swarm.spi.runtime.annotations.DeploymentScoped;
 import org.wildfly.swarm.undertow.WARArchive;
-import org.wildfly.swarm.undertow.descriptors.WebXmlAsset;
 
 /**
  * @author <a href="mailto:ggastald@redhat.com">George Gastaldi</a>
@@ -36,6 +42,8 @@ import org.wildfly.swarm.undertow.descriptors.WebXmlAsset;
 @DeploymentScoped
 public class FlywayMigrationArchivePreparer implements DeploymentProcessor {
 
+    private static final Logger logger = Logger.getLogger(FlywayMigrationArchivePreparer.class.getName());
+    public static final String INTEGRATOR = "services/org.hibernate.integrator.spi.Integrator";
     private final Archive<?> archive;
 
     @Inject
@@ -50,20 +58,28 @@ public class FlywayMigrationArchivePreparer implements DeploymentProcessor {
     }
 
     @Override
-    public void process() {
+    public void process() throws IOException {
+        logger.info("Adding integrator to war");
         if (archive.getName().endsWith(".war")) {
-            WARArchive webArchive = archive.as(WARArchive.class);
-            WebXmlAsset webXml = webArchive.findWebXmlAsset();
-            webXml.addListener("org.wildfly.swarm.flyway.deployment.FlywayMigrationServletContextListener");
-            FlywayFraction flywayFraction = flywayFractionInstance.get();
-            if (flywayFraction.usePrimaryDataSource()) {
-                String dataSourceJndi = getDatasourceNameJndi();
-                webXml.setContextParam(FlywayMigrationServletContextListener.FLYWAY_JNDI_DATASOURCE, dataSourceJndi);
-            } else {
-                webXml.setContextParam(FlywayMigrationServletContextListener.FLYWAY_JDBC_URL, flywayFraction.jdbcUrl());
-                webXml.setContextParam(FlywayMigrationServletContextListener.FLYWAY_JDBC_USER, flywayFraction.jdbcUser());
-                webXml.setContextParam(FlywayMigrationServletContextListener.FLYWAY_JDBC_PASSWORD, flywayFraction.jdbcPassword());
-            }
+
+            File dir = TempFileManager.INSTANCE.newTempDirectory("thorntail-flyway-config", ".d");
+            ByteArrayAsset asset = new ByteArrayAsset("org.wildfly.swarm.flyway.deployment.DatabaseMigration".getBytes());
+            WARArchive warArchive = archive.as(WARArchive.class);
+           // warArchive.add(asset, "services/org.hibernate.integrator.spi.Integrator");
+            logger.info("Adding class");
+             warArchive = warArchive.addClass(DatabaseMigration.class);
+            InputStream resourceAsStream = getClass().getClassLoader()
+                                                     .getResourceAsStream(INTEGRATOR);
+
+            logger.info("Adding services file");
+            String IntegratorString = convertStreamToString(resourceAsStream);
+            StringAsset stringAsset = new StringAsset(IntegratorString);
+            warArchive = warArchive.addAsManifestResource(stringAsset,INTEGRATOR);
+            //warArchive.addAsResource(new File(dir + INTEGRATOR), INTEGRATOR);
+            logger.info("Added to war");
+
+            //logger.info(warArchive.contains(INTEGRATOR));
+            logger.info(warArchive.getContent());
         }
     }
 
@@ -77,5 +93,9 @@ public class FlywayMigrationArchivePreparer implements DeploymentProcessor {
         }
         return jndiName;
     }
+    static String convertStreamToString(java.io.InputStream is) {
+    java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
+    return s.hasNext() ? s.next() : "";
+}
 
 }
