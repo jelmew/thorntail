@@ -60,6 +60,7 @@ public class FlywayMigrationInstaller implements DeploymentProcessor {
 
         }
         flyway.configure(System.getProperties());
+        //TODO, problematic. At this point in time the h2 driver does not seem to be available
         flyway.migrate();
     }
 
